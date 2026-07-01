@@ -1,0 +1,1 @@
+CREATE INDEX "item_fts_idx" ON "item" USING gin (to_tsvector('english', coalesce("title", '') || ' ' || coalesce("description", '')));
