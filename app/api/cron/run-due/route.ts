@@ -3,12 +3,16 @@ import { safeEqual } from "@/lib/crypto";
 // eslint-disable-next-line no-restricted-imports -- system cron job, no tenant session
 import { getDb } from "@/lib/db";
 
-/** Hit this on a schedule (Vercel Cron / external) with the `x-cron-secret` HEADER.
-    The secret is taken from the header only — never the query string, which would leak
-    it into proxy/CDN access logs. Disabled (403) unless CRON_SECRET is set and matches. */
+/** Hit this on a schedule with the secret in a HEADER — either `x-cron-secret` (external
+    schedulers) or `Authorization: Bearer <secret>` (what Vercel Cron sends automatically).
+    Never the query string, which would leak it into proxy/CDN access logs.
+    Disabled (403) unless CRON_SECRET is set and matches. */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
-  const provided = req.headers.get("x-cron-secret");
+  const provided =
+    req.headers.get("x-cron-secret") ??
+    (req.headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i)?.[1].trim() ??
+    null;
   // Constant-time compare to avoid a timing oracle on the secret.
   if (!secret || !provided || !safeEqual(provided, secret)) return new Response("forbidden", { status: 403 });
   const db = await getDb();

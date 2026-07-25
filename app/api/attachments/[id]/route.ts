@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { getCurrentUser } from "@/lib/auth";
 import { getAttachmentForUser } from "@/lib/attachments";
 import { isUuid } from "@/lib/db";
+import { getObject } from "@/lib/storage";
 
 /** Checked file proxy — never serves a guessable public URL; verifies org membership. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -15,7 +14,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!a) return new Response("Not found", { status: 404 });
 
   try {
-    const buf = await readFile(path.join(process.cwd(), ".data", "uploads", a.storageKey));
+    // Local filesystem or Vercel Blob, depending on BLOB_READ_WRITE_TOKEN — see lib/storage.
+    const buf = await getObject(a.storageKey);
+    if (!buf) return new Response("File missing", { status: 404 });
     // The stored MIME type is client-supplied. Only an explicit allowlist of NON-scriptable
     // types may render inline. SVG is deliberately excluded — it is an active document that
     // executes embedded <script> when served inline (stored XSS), and `image/*.startsWith`
@@ -23,7 +24,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     // content type so the browser never executes it.
     const INLINE_SAFE = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"]);
     const inlineOk = INLINE_SAFE.has(a.mimeType);
-    return new Response(new Uint8Array(buf), {
+    return new Response(new Blob([buf]), {
       headers: {
         "Content-Type": inlineOk ? a.mimeType : "application/octet-stream",
         "Content-Disposition": `${inlineOk ? "inline" : "attachment"}; filename="${encodeURIComponent(a.filename)}"`,

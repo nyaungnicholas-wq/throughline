@@ -296,7 +296,8 @@ export const attachments = pgTable(
     filename: text("filename").notNull(),
     mimeType: text("mime_type").notNull(),
     sizeBytes: integer("size_bytes").notNull().default(0),
-    /** Local: relative path under .data/uploads. Prod: blob key. Never a public URL. */
+    /** Backend-agnostic object key, `<orgId>/<random>-<filename>` — resolved by lib/storage
+        against .data/uploads locally or Vercel Blob in prod. Never a public URL. */
     storageKey: text("storage_key").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
