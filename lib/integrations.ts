@@ -77,6 +77,10 @@ export async function dispatchIntegrations(db: Db, a: IntegrationEvent): Promise
               method: "POST",
               headers: { "Content-Type": "application/json", "X-Throughline-Signature": `sha256=${sig}` },
               body: payload,
+              // Do NOT follow redirects: the URL was SSRF-validated, but a 3xx
+              // could send this POST to an internal/metadata target. Treat a
+              // redirect as a failed delivery instead of following it.
+              redirect: "manual",
             });
           }),
         );
@@ -89,7 +93,7 @@ export async function dispatchIntegrations(db: Db, a: IntegrationEvent): Promise
 
 async function postSlack(url: string, text: string): Promise<void> {
   try {
-    await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }), redirect: "manual" });
   } catch (e) {
     console.error("[slack] post failed", e);
   }
