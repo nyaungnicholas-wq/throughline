@@ -16,5 +16,6 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      # npm install (not ci): committed lockfile lags package.json
+      - run: npm install
       - run: npm run build
